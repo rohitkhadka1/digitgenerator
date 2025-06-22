@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import torch
 import torch.nn as nn
@@ -7,14 +5,12 @@ import numpy as np
 from PIL import Image
 import io
 
-# Set Streamlit page config
 st.set_page_config(
     page_title="Handwritten Digit Generator",
     page_icon="🧠",
     layout="wide"
 )
 
-# --- Generator Model ---
 class Generator(nn.Module):
     def __init__(self, latent_dim=100, img_size=28):
         super(Generator, self).__init__()
@@ -44,7 +40,6 @@ class Generator(nn.Module):
         img = img.view(img.size(0), 1, self.img_size, self.img_size)
         return img
 
-# --- Load Trained Model ---
 @st.cache_resource
 def load_model():
     device = torch.device("cpu")
@@ -66,7 +61,6 @@ def load_model():
         st.error(f"❌ Failed to load model:\n\n**{e}**")
         return None, device
 
-# --- Generate Images ---
 def generate_digit_images(generator, device, digit, num_samples=5):
     if generator is None:
         st.warning("Model not loaded properly. Generating blank images.")
@@ -80,51 +74,51 @@ def generate_digit_images(generator, device, digit, num_samples=5):
         imgs = (imgs + 1) / 2  # Normalize to [0, 1]
         return imgs
 
-# --- App Main ---
 def main():
     st.title("🧠 Handwritten Digit Generator")
     st.markdown("""
     Generate handwritten-style digits using a conditional GAN trained on MNIST.  
-    Select a digit from 0–9 and generate 5 unique samples.
+    Select a digit from 0–9 and instantly view 5 unique samples.
     """)
 
     generator, device = load_model()
 
-    # Sidebar Inputs
-    st.sidebar.header("🎛️ Controls")
-    digit = st.sidebar.selectbox("Select Digit", list(range(10)), index=0)
-    generate = st.sidebar.button("🎲 Generate 5 Images")
+    # Main page controls
+    digit = st.radio(
+        "Select Digit",
+        options=list(range(10)),
+        horizontal=True,
+        index=0,
+        key="digit_radio"
+    )
 
-    if generate:
-        st.session_state.generated_images = generate_digit_images(generator, device, digit)
-        st.session_state.generated_digit = digit
+    # Generate images when digit changes
+    generated_images = generate_digit_images(generator, device, digit)
 
-    # Display Images
-    if 'generated_images' in st.session_state:
-        st.header(f"Generated Samples for Digit: {st.session_state.generated_digit}")
-        cols = st.columns(5)
-        for i, img in enumerate(st.session_state.generated_images):
-            with cols[i]:
-                img_display = (img.squeeze() * 255).astype(np.uint8)
-                pil_img = Image.fromarray(img_display, mode='L')
-                st.image(pil_img.resize((128, 128)), caption=f"Sample {i+1}", use_column_width=True)
-
-        # Download Buttons
-        st.subheader("💾 Download Each Image")
-        cols_dl = st.columns(5)
-        for i, img in enumerate(st.session_state.generated_images):
+    st.header(f"Generated Samples for Digit: {digit}")
+    cols = st.columns(5)
+    for i, img in enumerate(generated_images):
+        with cols[i]:
             img_display = (img.squeeze() * 255).astype(np.uint8)
             pil_img = Image.fromarray(img_display, mode='L')
-            buf = io.BytesIO()
-            pil_img.save(buf, format='PNG')
-            byte_im = buf.getvalue()
-            with cols_dl[i]:
-                st.download_button(
-                    f"Download {i+1}",
-                    data=byte_im,
-                    file_name=f"digit_{digit}_sample_{i+1}.png",
-                    mime="image/png"
-                )
+            st.image(pil_img.resize((128, 128)), caption=f"Sample {i+1}", use_column_width=True)
+
+    # Download Buttons
+    st.subheader("💾 Download Each Image")
+    cols_dl = st.columns(5)
+    for i, img in enumerate(generated_images):
+        img_display = (img.squeeze() * 255).astype(np.uint8)
+        pil_img = Image.fromarray(img_display, mode='L')
+        buf = io.BytesIO()
+        pil_img.save(buf, format='PNG')
+        byte_im = buf.getvalue()
+        with cols_dl[i]:
+            st.download_button(
+                f"Download {i+1}",
+                data=byte_im,
+                file_name=f"digit_{digit}_sample_{i+1}.png",
+                mime="image/png"
+            )
 
 if __name__ == "__main__":
     main()
